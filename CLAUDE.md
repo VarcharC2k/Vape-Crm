@@ -206,8 +206,8 @@ LIMIT 20;
 - [x] CLAUDE.md 작성
 - [x] Go 프로젝트 초기화 (`go mod init`)
 - [x] 디렉토리 구조 생성
-- [ ] Hello World 웹서버 구동
-- [ ] SQLite 연결 테스트
+- [x] Hello World 웹서버 구동
+- [x] SQLite 연결 테스트
 
 ### Phase 1 — 데이터 계층
 - [ ] DB 마이그레이션 스크립트 (001_init.sql)
