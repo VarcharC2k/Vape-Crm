@@ -204,8 +204,8 @@ LIMIT 20;
 - [x] Git + GitHub 연동
 - [x] 기획서(PROJECT_PLAN_v2.md) 작성
 - [x] CLAUDE.md 작성
-- [ ] Go 프로젝트 초기화 (`go mod init`)
-- [ ] 디렉토리 구조 생성
+- [x] Go 프로젝트 초기화 (`go mod init`)
+- [x] 디렉토리 구조 생성
 - [ ] Hello World 웹서버 구동
 - [ ] SQLite 연결 테스트
 
