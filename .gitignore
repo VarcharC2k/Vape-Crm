@@ -1,0 +1,25 @@
+# 빌드 결과물
+*.exe
+/bin/
+/dist/
+
+# SQLite 데이터베이스 파일
+/data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Go 관련
+vendor/
+/tmp/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# 로그
+*.log
