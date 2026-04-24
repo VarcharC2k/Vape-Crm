@@ -235,7 +235,7 @@ LIMIT 20;
 
 ### Phase 3 — 마스터 관리 UI
 - [ ] 고객 관리
-- [ ] 품목 관리
+- [x] 품목 관리
 
 ### Phase 4 — 거래 기능
 - [ ] 매입 등록 (재고 증가 트랜잭션)
@@ -334,5 +334,9 @@ git push
 
 - **완료**: CLAUDE.md 상단에 "세션 시작 시 필독 파일" 섹션 신설 — `CLAUDE.md` → `PROJECT_PLAN_v2.md` 순서 필독, 두 문서 충돌 시 `CLAUDE.md` 우선, 갱신 위치 규칙 명시.
 - **완료**: `md-daily-update` 스킬 생성 — 사용자가 "MD 파일 갱신해줘"라고 명시 요청할 때 git 근거로 오늘 작업을 수집해 본 섹션에 누적하는 동작 정의.
-- **결정**: 작업 로그는 본 파일(`CLAUDE.md`) 하단에만 누적한다 — 로그는 구현·운영 관점 정보이므로 기획서(`PROJECT_PLAN_v2.md`)와 분리.
-- **진행 중**: 위 변경은 아직 미커밋 (워킹트리 상태).
+- **완료**: 품목 데이터 계층 — `001_init.sql`, Category(iota) + Product 모델, Repository CRUD, `:memory:` 단위 테스트 9개. `embed.FS` 로 SQL 을 바이너리에 포함.
+- **완료**: 품목 관리 화면 CRUD — service(검증·재고금액 계산), HTTP 핸들러, 템플릿(목록 + tbody 파셜 + 공용 모달 폼). Pico.css + HTMX + `<dialog>` 조합, Alpine 미사용.
+- **결정**: 금액은 `int64` 원 단위 고정, 분류는 iota 정수 저장 + `String()` 한글 변환, 재고금액은 저장하지 않고 service 단에서 `StockQty × PurchasePrice` 계산.
+- **결정**: 삭제는 A안(과거 거래 존재 시 거부) 방향 — 거래 테이블이 아직 없어 지금은 단순 삭제, 거래 기능 추가 시 service 에 가드 추가.
+- **결정**: HTMX 검증 실패 응답은 `HX-Retarget: #modal-body` 헤더로 swap 대상을 모달로 재지정 → 성공·실패 경로를 같은 폼 하나로 처리. 파셜 템플릿(`_tbody.html`, `_form.html`) 포함 위해 `//go:embed all:templates` 사용 (go:embed 가 `_` 프리픽스 파일을 기본 제외하는 점 회피).
+- **커밋**: `e8ec9c1 docs: 세션 필독 규칙 추가 + 2026-04-24 작업 로그`, `11635b8 feat: 품목 데이터 계층 구현`. 품목 관리 화면(service/handler/templates/embed/main wiring)은 미커밋.
