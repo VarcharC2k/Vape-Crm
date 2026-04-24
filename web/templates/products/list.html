@@ -1,0 +1,57 @@
+{{define "page"}}
+<header style="display: flex; justify-content: space-between; align-items: center;">
+  <hgroup>
+    <h1>품목 관리</h1>
+    <p>등록된 품목 {{len .Products}}개</p>
+  </hgroup>
+  <button
+    hx-get="/products/new"
+    hx-target="#modal-body"
+    hx-swap="innerHTML">
+    신규 등록
+  </button>
+</header>
+
+<table>
+  <thead>
+    <tr>
+      <th>분류</th>
+      <th>품목명</th>
+      <th class="num">재고수량</th>
+      <th class="num">매입단가</th>
+      <th class="num">매출단가</th>
+      <th class="num">재고금액</th>
+      <th style="width: 8rem;">관리</th>
+    </tr>
+  </thead>
+  {{template "products_tbody" .}}
+</table>
+
+{{/* 모달: hx-get 으로 내용이 들어오면 아래 JS 가 showModal() 호출 */}}
+<dialog id="modal">
+  <article style="min-width: min(32rem, 90vw);">
+    <header>
+      <button
+        aria-label="Close"
+        rel="prev"
+        onclick="document.getElementById('modal').close()"></button>
+      <strong id="modal-title">품목</strong>
+    </header>
+    <div id="modal-body"><!-- HTMX 가 폼을 여기에 주입 --></div>
+  </article>
+</dialog>
+
+<script>
+  // 모달 body 로 새 HTML 이 swap 되면 자동으로 dialog 열기
+  document.body.addEventListener('htmx:afterSwap', function (evt) {
+    if (evt.detail.target && evt.detail.target.id === 'modal-body') {
+      document.getElementById('modal').showModal();
+    }
+  });
+
+  // 저장 성공 시 서버가 HX-Trigger: product-saved 를 보내면 모달 닫기
+  document.body.addEventListener('product-saved', function () {
+    document.getElementById('modal').close();
+  });
+</script>
+{{end}}

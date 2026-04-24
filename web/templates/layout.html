@@ -1,0 +1,26 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}} · vape-crm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    /* 본문 여백이 기본 Pico 보다 살짝 넉넉하도록 */
+    main.container { padding-block: 2rem; }
+    /* 표의 '관리' 버튼들이 한 줄에 붙어 보이게 */
+    table td .btn-row { display: flex; gap: 0.25rem; flex-wrap: nowrap; }
+    table td .btn-row button { margin: 0; padding: 0.25rem 0.6rem; font-size: 0.85rem; }
+    /* 숫자 컬럼 우측 정렬 */
+    table td.num, table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    {{template "page" .}}
+  </main>
+</body>
+</html>
+{{end}}

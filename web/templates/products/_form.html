@@ -1,0 +1,81 @@
+{{define "products_form"}}
+{{/*
+  products_form 은 등록(ID=0)과 수정(ID>0) 양쪽에 공용.
+  - ID 로 hx-post / hx-put 을 분기한다.
+  - hx-target 은 #products-tbody 로, 성공 시 목록이 재렌더된다.
+  - 검증 실패(422)는 서버가 HX-Retarget: #modal-body 헤더를 붙여 와
+    자동으로 이 폼 자체가 모달 안에 다시 그려지도록 만든다.
+*/}}
+{{- $p := .Product -}}
+{{- $errs := .Errors -}}
+{{- $isEdit := gt $p.ID 0 -}}
+
+<h3 style="margin-top: 0;">
+  {{if $isEdit}}품목 수정{{else}}신규 품목 등록{{end}}
+</h3>
+
+<form
+  {{if $isEdit}}hx-put="/products/{{$p.ID}}"{{else}}hx-post="/products/"{{end}}
+  hx-target="#products-tbody"
+  hx-swap="outerHTML">
+
+  <label>
+    분류
+    <select name="category" required
+            {{if $errs.category}}aria-invalid="true"{{end}}>
+      {{range categories}}
+        <option value="{{categoryInt .}}" {{if eq (categoryInt .) (categoryInt $p.Category)}}selected{{end}}>
+          {{.}}
+        </option>
+      {{end}}
+    </select>
+    {{with $errs.category}}<small>{{.}}</small>{{end}}
+  </label>
+
+  <label>
+    품목명
+    <input type="text" name="name" required maxlength="50"
+           value="{{$p.Name}}"
+           {{if $errs.name}}aria-invalid="true"{{end}}
+           placeholder="예: 망고 30ml">
+    {{with $errs.name}}<small>{{.}}</small>{{end}}
+  </label>
+
+  <div class="grid">
+    <label>
+      매입단가 (원)
+      <input type="number" name="purchase_price" required min="0" step="1"
+             value="{{$p.PurchasePrice}}"
+             {{if $errs.purchase_price}}aria-invalid="true"{{end}}>
+      {{with $errs.purchase_price}}<small>{{.}}</small>{{end}}
+    </label>
+
+    <label>
+      매출단가 (원)
+      <input type="number" name="sale_price" required min="0" step="1"
+             value="{{$p.SalePrice}}"
+             {{if $errs.sale_price}}aria-invalid="true"{{end}}>
+      {{with $errs.sale_price}}<small>{{.}}</small>{{end}}
+    </label>
+
+    <label>
+      재고수량
+      <input type="number" name="stock_qty" required min="0" step="1"
+             value="{{$p.StockQty}}"
+             {{if $errs.stock_qty}}aria-invalid="true"{{end}}>
+      {{with $errs.stock_qty}}<small>{{.}}</small>{{end}}
+    </label>
+  </div>
+
+  <footer style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+    <button type="button"
+            class="secondary"
+            onclick="document.getElementById('modal').close()">
+      취소
+    </button>
+    <button type="submit">
+      {{if $isEdit}}수정{{else}}등록{{end}}
+    </button>
+  </footer>
+</form>
+{{end}}
