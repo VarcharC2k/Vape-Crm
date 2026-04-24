@@ -18,6 +18,12 @@ func main() {
 	defer conn.Close()
 	log.Println("DB 연결 성공")
 
+	// 스키마 생성/갱신: *.sql 들은 바이너리에 embed 되어 있어 배포 시 외부 파일 불필요.
+	if err := db.Migrate(conn); err != nil {
+		log.Fatalf("DB 마이그레이션 실패: %v", err)
+	}
+	log.Println("DB 마이그레이션 완료")
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
