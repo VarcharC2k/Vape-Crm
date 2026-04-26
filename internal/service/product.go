@@ -12,14 +12,6 @@ import (
 	"github.com/varcharC2k/vape-crm/internal/repository"
 )
 
-// ProductView — 화면 표시용으로 재고금액(재고수량 × 매입단가)을 미리 계산해 붙인 구조체.
-// 템플릿에서 {{.StockAmount}} 로 바로 쓸 수 있다.
-// *models.Product 를 임베딩하므로 기존 필드(.Name, .Category 등)는 그대로 접근 가능.
-type ProductView struct {
-	*models.Product
-	StockAmount int64
-}
-
 // ProductService — repository 위에 유효성 검증과 비즈니스 규칙을 얹는다.
 // 핸들러는 이 계층까지만 알고, repository 나 models 의 내부를 직접 건드리지 않는다.
 type ProductService struct {
@@ -47,21 +39,15 @@ func (v ValidationErrors) Error() string {
 	return strings.Join(parts, ", ")
 }
 
-// List — 전체 품목을 화면용 뷰로 반환.
-func (s *ProductService) List(ctx context.Context) ([]ProductView, error) {
-	products, err := s.repo.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-	views := make([]ProductView, 0, len(products))
-	for _, p := range products {
-		views = append(views, toView(p))
-	}
-	return views, nil
+// List — 필터 조건에 맞는 품목 목록을 반환.
+// 필터가 비어있으면 전체 품목을 이름 오름차순으로 반환.
+// repository 에 그대로 위임 — 검증/추가 비즈니스 로직 없음.
+func (s *ProductService) List(ctx context.Context, filter repository.ProductFilter) ([]*models.Product, error) {
+	return s.repo.List(ctx, filter)
 }
 
 // Get — 단일 품목 조회. 없으면 ErrProductNotFound.
-func (s *ProductService) Get(ctx context.Context, id int64) (*ProductView, error) {
+func (s *ProductService) Get(ctx context.Context, id int64) (*models.Product, error) {
 	p, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -69,8 +55,7 @@ func (s *ProductService) Get(ctx context.Context, id int64) (*ProductView, error
 		}
 		return nil, err
 	}
-	v := toView(p)
-	return &v, nil
+	return p, nil
 }
 
 // Create — 검증 통과 시 등록. 이름 중복은 DB 단 UNIQUE 제약에서 걸리고,
@@ -134,9 +119,6 @@ func validate(p *models.Product) ValidationErrors {
 	if !p.Category.IsValid() {
 		errs["category"] = "유효하지 않은 분류입니다"
 	}
-	if p.PurchasePrice < 0 {
-		errs["purchase_price"] = "매입단가는 0 이상이어야 합니다"
-	}
 	if p.SalePrice < 0 {
 		errs["sale_price"] = "매출단가는 0 이상이어야 합니다"
 	}
@@ -157,11 +139,4 @@ func isUniqueViolation(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "UNIQUE constraint failed") ||
 		strings.Contains(msg, "constraint failed: UNIQUE")
-}
-
-func toView(p *models.Product) ProductView {
-	return ProductView{
-		Product:     p,
-		StockAmount: int64(p.StockQty) * p.PurchasePrice,
-	}
 }

@@ -5,9 +5,7 @@
       <td>{{.Category}}</td>
       <td>{{.Name}}</td>
       <td class="num">{{.StockQty}}</td>
-      <td class="num">{{currency .PurchasePrice}}</td>
       <td class="num">{{currency .SalePrice}}</td>
-      <td class="num">{{currency .StockAmount}}</td>
       <td>
         <div class="btn-row">
           <button class="secondary outline"
@@ -20,6 +18,7 @@
                   hx-delete="/products/{{.ID}}"
                   hx-target="#products-tbody"
                   hx-swap="outerHTML"
+                  hx-include="#filter-category, #filter-name"
                   hx-confirm="'{{.Name}}' 을(를) 정말 삭제하시겠습니까?">
             삭제
           </button>
@@ -28,7 +27,7 @@
     </tr>
   {{else}}
     <tr>
-      <td colspan="7" style="text-align: center; padding: 2rem;">
+      <td colspan="5" style="text-align: center; padding: 2rem;">
         <em>등록된 품목이 없습니다. '신규 등록' 버튼으로 추가해주세요.</em>
       </td>
     </tr>

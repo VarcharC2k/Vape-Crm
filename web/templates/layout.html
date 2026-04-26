@@ -7,6 +7,17 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    // HTMX 1.x 는 4xx 응답을 기본적으로 swap 하지 않는다.
+    // 검증 실패(422) 는 폼을 다시 그려야 하므로 명시적으로 swap 을 허용한다.
+    // (HX-Retarget 헤더로 #modal-body 에 재주입되도록 서버가 함께 지정한다)
+    document.addEventListener('htmx:beforeSwap', function (evt) {
+      if (evt.detail.xhr.status === 422) {
+        evt.detail.shouldSwap = true;
+        evt.detail.isError = false;
+      }
+    });
+  </script>
   <style>
     /* 본문 여백이 기본 Pico 보다 살짝 넉넉하도록 */
     main.container { padding-block: 2rem; }
@@ -15,6 +26,13 @@
     table td .btn-row button { margin: 0; padding: 0.25rem 0.6rem; font-size: 0.85rem; }
     /* 숫자 컬럼 우측 정렬 */
     table td.num, table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    /* 폼 필드별 검증 에러 텍스트 — 빨갛게 강조 */
+    small.field-error {
+      color: var(--pico-color-red-550, #c0392b);
+      display: block;
+      margin-top: 0.25rem;
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>

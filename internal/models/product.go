@@ -67,11 +67,10 @@ func AllCategories() []Category {
 // Product — 품목 마스터.
 // 금액은 모두 int64 (원 단위 정수). float 사용 금지.
 type Product struct {
-	ID            int64
-	Category      Category
-	Name          string // 최대 50자, DB 에서 UNIQUE
-	PurchasePrice int64  // 매입단가
-	SalePrice     int64  // 매출단가
-	StockQty      int    // 재고 수량 (수량은 음수 될 일 없지만 int 로 유지 — uint 은 Go 관행상 선호되지 않음)
-	CreatedAt     time.Time
+	ID        int64
+	Category  Category
+	Name      string // 최대 50자, DB 에서 UNIQUE
+	SalePrice int64  // 매출단가
+	StockQty  int    // 재고 수량 (수량은 음수 될 일 없지만 int 로 유지 — uint 은 Go 관행상 선호되지 않음)
+	CreatedAt time.Time
 }

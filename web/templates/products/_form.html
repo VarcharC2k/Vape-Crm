@@ -17,7 +17,8 @@
 <form
   {{if $isEdit}}hx-put="/products/{{$p.ID}}"{{else}}hx-post="/products/"{{end}}
   hx-target="#products-tbody"
-  hx-swap="outerHTML">
+  hx-swap="outerHTML"
+  hx-include="#filter-category, #filter-name">
 
   <label>
     분류
@@ -29,7 +30,7 @@
         </option>
       {{end}}
     </select>
-    {{with $errs.category}}<small>{{.}}</small>{{end}}
+    {{with $errs.category}}<small class="field-error">{{.}}</small>{{end}}
   </label>
 
   <label>
@@ -38,24 +39,16 @@
            value="{{$p.Name}}"
            {{if $errs.name}}aria-invalid="true"{{end}}
            placeholder="예: 망고 30ml">
-    {{with $errs.name}}<small>{{.}}</small>{{end}}
+    {{with $errs.name}}<small class="field-error">{{.}}</small>{{end}}
   </label>
 
   <div class="grid">
-    <label>
-      매입단가 (원)
-      <input type="number" name="purchase_price" required min="0" step="1"
-             value="{{$p.PurchasePrice}}"
-             {{if $errs.purchase_price}}aria-invalid="true"{{end}}>
-      {{with $errs.purchase_price}}<small>{{.}}</small>{{end}}
-    </label>
-
     <label>
       매출단가 (원)
       <input type="number" name="sale_price" required min="0" step="1"
              value="{{$p.SalePrice}}"
              {{if $errs.sale_price}}aria-invalid="true"{{end}}>
-      {{with $errs.sale_price}}<small>{{.}}</small>{{end}}
+      {{with $errs.sale_price}}<small class="field-error">{{.}}</small>{{end}}
     </label>
 
     <label>
@@ -63,7 +56,7 @@
       <input type="number" name="stock_qty" required min="0" step="1"
              value="{{$p.StockQty}}"
              {{if $errs.stock_qty}}aria-invalid="true"{{end}}>
-      {{with $errs.stock_qty}}<small>{{.}}</small>{{end}}
+      {{with $errs.stock_qty}}<small class="field-error">{{.}}</small>{{end}}
     </label>
   </div>
 

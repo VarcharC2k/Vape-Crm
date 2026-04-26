@@ -2,7 +2,7 @@
 <header style="display: flex; justify-content: space-between; align-items: center;">
   <hgroup>
     <h1>품목 관리</h1>
-    <p>등록된 품목 {{len .Products}}개</p>
+    <p id="product-count">등록된 품목 {{len .Products}}개</p>
   </hgroup>
   <button
     hx-get="/products/new"
@@ -12,15 +12,48 @@
   </button>
 </header>
 
+{{/*
+  필터 폼.
+  - submit 막기: 인풋 자체가 hx-get 으로 트리거하므로 폼 submit 은 발생하지 않게 한다.
+  - 두 인풋이 서로의 값을 hx-include 로 함께 보냄.
+  - 필드명에 q_ 접두사: 품목 자체 필드(name/category) 와 구분.
+*/}}
+<form id="filter-form" onsubmit="return false" style="margin-bottom: 1rem;">
+  <fieldset class="grid">
+    <label>
+      분류
+      <select id="filter-category" name="q_category"
+              hx-get="/products/"
+              hx-target="#products-tbody"
+              hx-swap="outerHTML"
+              hx-include="#filter-name"
+              hx-trigger="change">
+        <option value="-1">전체</option>
+        {{range categories}}
+          <option value="{{categoryInt .}}">{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <label>
+      품목명
+      <input id="filter-name" name="q_name" type="search"
+             placeholder="품목명 일부 입력..."
+             hx-get="/products/"
+             hx-target="#products-tbody"
+             hx-swap="outerHTML"
+             hx-include="#filter-category"
+             hx-trigger="keyup changed delay:200ms, search">
+    </label>
+  </fieldset>
+</form>
+
 <table>
   <thead>
     <tr>
       <th>분류</th>
       <th>품목명</th>
       <th class="num">재고수량</th>
-      <th class="num">매입단가</th>
       <th class="num">매출단가</th>
-      <th class="num">재고금액</th>
       <th style="width: 8rem;">관리</th>
     </tr>
   </thead>
@@ -52,6 +85,12 @@
   // 저장 성공 시 서버가 HX-Trigger: product-saved 를 보내면 모달 닫기
   document.body.addEventListener('product-saved', function () {
     document.getElementById('modal').close();
+  });
+
+  // 등록/수정/삭제/필터 변경 후 서버가 보낸 새 카운트로 상단 텍스트 갱신
+  document.body.addEventListener('product-count-changed', function (evt) {
+    const el = document.getElementById('product-count');
+    if (el) el.textContent = '등록된 품목 ' + evt.detail.value + '개';
   });
 </script>
 {{end}}

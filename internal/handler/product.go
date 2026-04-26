@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -11,11 +12,11 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/varcharC2k/vape-crm/internal/models"
+	"github.com/varcharC2k/vape-crm/internal/repository"
 	"github.com/varcharC2k/vape-crm/internal/service"
 )
 
 // ProductHandler — /products 경로들의 HTTP 처리.
-// 서비스와 템플릿 세트를 주입받아 사용한다.
 type ProductHandler struct {
 	svc  *service.ProductService
 	tmpl *template.Template
@@ -25,21 +26,29 @@ func NewProductHandler(svc *service.ProductService, tmpl *template.Template) *Pr
 	return &ProductHandler{svc: svc, tmpl: tmpl}
 }
 
-// Register — 라우트 등록. main 에서 r.Mount 대신 이 메서드를 호출한다.
+// Register — 라우트 등록.
 func (h *ProductHandler) Register(r chi.Router) {
 	r.Route("/products", func(r chi.Router) {
-		r.Get("/", h.list)                 // 목록 전체 페이지
-		r.Get("/new", h.newForm)           // 등록 모달 body
-		r.Post("/", h.create)              // 등록 실행 -> 갱신된 tbody
-		r.Get("/{id}/edit", h.editForm)    // 수정 모달 body (값 채워짐)
-		r.Put("/{id}", h.update)           // 수정 실행 -> 갱신된 tbody
-		r.Delete("/{id}", h.delete)        // 삭제 -> 갱신된 tbody
+		r.Get("/", h.list)              // 목록 (HX-Request 헤더 유무로 풀페이지/tbody 분기)
+		r.Get("/new", h.newForm)        // 등록 모달 body
+		r.Post("/", h.create)           // 등록 실행 -> 갱신된 tbody (필터 반영)
+		r.Get("/{id}/edit", h.editForm) // 수정 모달 body
+		r.Put("/{id}", h.update)        // 수정 실행 -> 갱신된 tbody
+		r.Delete("/{id}", h.delete)     // 삭제 -> 갱신된 tbody
 	})
 }
 
-// list — 목록 페이지(풀 HTML). layout + products/list 조합을 실행.
+// list — GET /products/
+//   - 일반 브라우저 접근(HX-Request 헤더 없음): layout + 풀 페이지 렌더, 필터 인풋 비어있는 상태.
+//   - HTMX 요청(필터 인풋 변경 등): tbody 파셜만 반환, 쿼리 파라미터의 필터 적용.
 func (h *ProductHandler) list(w http.ResponseWriter, r *http.Request) {
-	products, err := h.svc.List(r.Context())
+	if isHTMX(r) {
+		h.renderTbody(w, r)
+		return
+	}
+
+	// 풀 페이지는 필터 없이 전체 목록.
+	products, err := h.svc.List(r.Context(), repository.ProductFilter{})
 	if err != nil {
 		h.serverError(w, err)
 		return
@@ -50,10 +59,27 @@ func (h *ProductHandler) list(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// renderTbody — 필터를 적용해 tbody 파셜만 반환.
+// 카운트 갱신 트리거도 함께 보낸다(모달 닫기 신호는 빠짐).
+func (h *ProductHandler) renderTbody(w http.ResponseWriter, r *http.Request) {
+	products, err := h.svc.List(r.Context(), parseFilter(r))
+	if err != nil {
+		h.serverError(w, err)
+		return
+	}
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"product-count-changed": %d}`, len(products)))
+	h.render(w, "products_tbody", map[string]any{"Products": products})
+}
+
 // newForm — 빈 폼을 모달 body 에 주입.
-// 응답 HTML 이 #modal-body 에 swap 되면 클라 JS 가 dialog.showModal() 호출.
+//
+// 매출단가는 기본값 25000 으로 초기화한다.
+// 폼 검증 실패 후 재렌더 시에는 사용자가 입력한 값이 보존되도록
+// 이 기본값은 newForm 에서만 적용하고 create 핸들러에선 손대지 않는다.
 func (h *ProductHandler) newForm(w http.ResponseWriter, r *http.Request) {
-	h.render(w, "products_form", formData(&models.Product{}, nil))
+	h.render(w, "products_form", formData(&models.Product{
+		SalePrice: 25000,
+	}, nil))
 }
 
 // editForm — 값이 채워진 수정용 폼.
@@ -63,7 +89,7 @@ func (h *ProductHandler) editForm(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "잘못된 ID", http.StatusBadRequest)
 		return
 	}
-	view, err := h.svc.Get(r.Context(), id)
+	p, err := h.svc.Get(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, service.ErrProductNotFound) {
 			http.NotFound(w, r)
@@ -72,11 +98,9 @@ func (h *ProductHandler) editForm(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, err)
 		return
 	}
-	h.render(w, "products_form", formData(view.Product, nil))
+	h.render(w, "products_form", formData(p, nil))
 }
 
-// create — POST /products. 성공 시 갱신된 tbody + product-saved 트리거.
-// 검증 실패 시 422 + 모달로 폼 재주입.
 func (h *ProductHandler) create(w http.ResponseWriter, r *http.Request) {
 	p, err := parseProductForm(r)
 	if err != nil {
@@ -93,7 +117,6 @@ func (h *ProductHandler) create(w http.ResponseWriter, r *http.Request) {
 	h.renderTbodyAndTrigger(w, r)
 }
 
-// update — PUT /products/{id}. 동일 패턴.
 func (h *ProductHandler) update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r)
 	if err != nil {
@@ -121,7 +144,6 @@ func (h *ProductHandler) update(w http.ResponseWriter, r *http.Request) {
 	h.renderTbodyAndTrigger(w, r)
 }
 
-// delete — DELETE /products/{id}. 성공 시 갱신된 tbody 만 반환(모달 없음).
 func (h *ProductHandler) delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r)
 	if err != nil {
@@ -147,8 +169,6 @@ func (h *ProductHandler) tryRenderFormError(w http.ResponseWriter, err error, p 
 	if !errors.As(err, &valErrs) {
 		return false
 	}
-	// 폼이 원래 hx-target="#products-tbody" 로 쐈기 때문에
-	// 에러 응답은 모달 쪽으로 재지정한다.
 	w.Header().Set("HX-Retarget", "#modal-body")
 	w.Header().Set("HX-Reswap", "innerHTML")
 	w.WriteHeader(http.StatusUnprocessableEntity)
@@ -156,20 +176,20 @@ func (h *ProductHandler) tryRenderFormError(w http.ResponseWriter, err error, p 
 	return true
 }
 
-// renderTbodyAndTrigger — 갱신된 tbody 반환 + HX-Trigger 로 모달 닫기 신호.
-// 클라의 이벤트 리스너("product-saved")가 dialog.close() 호출.
+// renderTbodyAndTrigger — CRUD 성공 후 호출.
+// 필터(폼/쿼리에 동봉돼 들어옴) 적용해 tbody 파셜 반환 + 모달 닫기 + 카운트 갱신.
 func (h *ProductHandler) renderTbodyAndTrigger(w http.ResponseWriter, r *http.Request) {
-	products, err := h.svc.List(r.Context())
+	products, err := h.svc.List(r.Context(), parseFilter(r))
 	if err != nil {
 		h.serverError(w, err)
 		return
 	}
-	w.Header().Set("HX-Trigger", "product-saved")
+	trigger := fmt.Sprintf(`{"product-saved": null, "product-count-changed": %d}`, len(products))
+	w.Header().Set("HX-Trigger", trigger)
 	h.render(w, "products_tbody", map[string]any{"Products": products})
 }
 
 // render — 템플릿을 버퍼에 먼저 쓴 뒤 일괄 flush.
-// 중간에 에러가 나면 반쪽짜리 응답이 나가지 않도록 방어.
 func (h *ProductHandler) render(w http.ResponseWriter, name string, data any) {
 	var buf bytes.Buffer
 	if err := h.tmpl.ExecuteTemplate(&buf, name, data); err != nil {
@@ -188,9 +208,6 @@ func (h *ProductHandler) serverError(w http.ResponseWriter, err error) {
 	http.Error(w, "서버 오류", http.StatusInternalServerError)
 }
 
-// formData — 폼 템플릿용 공통 데이터 구조.
-// Product 는 값이 채워진 상태(수정) 또는 제로값(등록).
-// Errors 는 검증 실패 시에만 채워져 필드별 메시지 노출에 쓰인다.
 func formData(p *models.Product, errs service.ValidationErrors) map[string]any {
 	return map[string]any{
 		"Product": p,
@@ -198,21 +215,48 @@ func formData(p *models.Product, errs service.ValidationErrors) map[string]any {
 	}
 }
 
+// isHTMX — HTMX 발 요청인지(HX-Request 헤더 유무).
+// 풀 페이지 vs 파셜 응답 분기 기준.
+func isHTMX(r *http.Request) bool {
+	return r.Header.Get("HX-Request") == "true"
+}
+
 func parseID(r *http.Request) (int64, error) {
 	return strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 }
 
+// parseFilter — 요청에서 필터 인풋 값을 추출.
+//
+// 필드명 규칙:
+//   - q_category: "" 또는 "-1" 이면 전체, 그 외엔 정수로 파싱.
+//   - q_name:     공백만이면 전체.
+//
+// q_ 접두사를 쓰는 이유: 폼의 "name", "category" (품목 자체 필드) 와 충돌 방지.
+//
+// r.FormValue 는 GET 의 query string 과 POST 의 form body 양쪽을 모두 읽으므로
+// 필터 인풋이 hx-include 로 함께 보내질 때(POST/PUT/DELETE) 도 동일하게 동작한다.
+func parseFilter(r *http.Request) repository.ProductFilter {
+	var filter repository.ProductFilter
+
+	if catStr := r.FormValue("q_category"); catStr != "" && catStr != "-1" {
+		if catInt, err := strconv.Atoi(catStr); err == nil {
+			cat := models.Category(catInt)
+			if cat.IsValid() {
+				filter.Category = &cat
+			}
+		}
+	}
+
+	filter.Name = r.FormValue("q_name")
+	return filter
+}
+
 // parseProductForm — 폼 필드를 파싱해 Product 구조체로.
-// type="number" required 덕분에 파싱 실패는 드물다.
 func parseProductForm(r *http.Request) (*models.Product, error) {
 	if err := r.ParseForm(); err != nil {
 		return nil, err
 	}
 	categoryInt, err := strconv.Atoi(r.FormValue("category"))
-	if err != nil {
-		return nil, err
-	}
-	purchase, err := strconv.ParseInt(r.FormValue("purchase_price"), 10, 64)
 	if err != nil {
 		return nil, err
 	}
@@ -225,10 +269,9 @@ func parseProductForm(r *http.Request) (*models.Product, error) {
 		return nil, err
 	}
 	return &models.Product{
-		Category:      models.Category(categoryInt),
-		Name:          r.FormValue("name"),
-		PurchasePrice: purchase,
-		SalePrice:     sale,
-		StockQty:      stock,
+		Category:  models.Category(categoryInt),
+		Name:      r.FormValue("name"),
+		SalePrice: sale,
+		StockQty:  stock,
 	}, nil
 }

@@ -35,11 +35,10 @@ func newTestDB(t *testing.T) *sql.DB {
 
 func newSampleProduct(name string) *models.Product {
 	return &models.Product{
-		Category:      models.CategoryLiquid,
-		Name:          name,
-		PurchasePrice: 3190,
-		SalePrice:     8000,
-		StockQty:      10,
+		Category:  models.CategoryLiquid,
+		Name:      name,
+		SalePrice: 8000,
+		StockQty:  10,
 	}
 }
 
@@ -64,9 +63,6 @@ func TestProduct_CreateAndGet(t *testing.T) {
 	}
 	if got.Category != p.Category {
 		t.Errorf("Category: got=%d want=%d", got.Category, p.Category)
-	}
-	if got.PurchasePrice != p.PurchasePrice {
-		t.Errorf("PurchasePrice: got=%d want=%d", got.PurchasePrice, p.PurchasePrice)
 	}
 	if got.SalePrice != p.SalePrice {
 		t.Errorf("SalePrice: got=%d want=%d", got.SalePrice, p.SalePrice)
@@ -105,7 +101,7 @@ func TestProduct_ListSortedByName(t *testing.T) {
 		}
 	}
 
-	list, err := repo.List(ctx)
+	list, err := repo.List(ctx, ProductFilter{})
 	if err != nil {
 		t.Fatalf("List 실패: %v", err)
 	}
@@ -126,7 +122,7 @@ func TestProduct_ListEmpty(t *testing.T) {
 	ctx := context.Background()
 	repo := NewProductRepository(newTestDB(t))
 
-	list, err := repo.List(ctx)
+	list, err := repo.List(ctx, ProductFilter{})
 	if err != nil {
 		t.Fatalf("List 실패: %v", err)
 	}
@@ -141,7 +137,7 @@ func TestProduct_Update(t *testing.T) {
 
 	p := &models.Product{
 		Category: models.CategoryDevice, Name: "기기A",
-		PurchasePrice: 10000, SalePrice: 30000, StockQty: 5,
+		SalePrice: 30000, StockQty: 5,
 	}
 	if err := repo.Create(ctx, p); err != nil {
 		t.Fatal(err)
@@ -175,7 +171,7 @@ func TestProduct_UpdateNotFound(t *testing.T) {
 
 	p := &models.Product{
 		ID: 9999, Category: models.CategoryLiquid, Name: "없음",
-		PurchasePrice: 1, SalePrice: 2, StockQty: 0,
+		SalePrice: 2, StockQty: 0,
 	}
 	if err := repo.Update(ctx, p); !errors.Is(err, sql.ErrNoRows) {
 		t.Errorf("없는 ID 업데이트 시 sql.ErrNoRows 기대: got=%v", err)
@@ -215,5 +211,83 @@ func TestProduct_GetByIDNotFound(t *testing.T) {
 
 	if _, err := repo.GetByID(ctx, 9999); !errors.Is(err, sql.ErrNoRows) {
 		t.Errorf("없는 ID 조회 시 sql.ErrNoRows 기대: got=%v", err)
+	}
+}
+
+// TestProduct_ListByCategory — 분류 필터.
+func TestProduct_ListByCategory(t *testing.T) {
+	ctx := context.Background()
+	repo := NewProductRepository(newTestDB(t))
+
+	mustCreate := func(name string, c models.Category) {
+		p := newSampleProduct(name)
+		p.Category = c
+		if err := repo.Create(ctx, p); err != nil {
+			t.Fatalf("Create(%s) 실패: %v", name, err)
+		}
+	}
+	mustCreate("액상A", models.CategoryLiquid)
+	mustCreate("액상B", models.CategoryLiquid)
+	mustCreate("코일A", models.CategoryCoil)
+
+	cat := models.CategoryLiquid
+	list, err := repo.List(ctx, ProductFilter{Category: &cat})
+	if err != nil {
+		t.Fatalf("List 실패: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("액상 필터 개수: got=%d want=2", len(list))
+	}
+	for _, p := range list {
+		if p.Category != models.CategoryLiquid {
+			t.Errorf("필터 결과에 다른 분류 섞임: %+v", p)
+		}
+	}
+}
+
+// TestProduct_ListByName — 이름 부분일치 + 앞쪽 일치 우선 정렬.
+func TestProduct_ListByName(t *testing.T) {
+	ctx := context.Background()
+	repo := NewProductRepository(newTestDB(t))
+
+	for _, n := range []string{"수박맛", "딸기수박", "수박바", "포도"} {
+		if err := repo.Create(ctx, newSampleProduct(n)); err != nil {
+			t.Fatalf("Create(%s) 실패: %v", n, err)
+		}
+	}
+
+	list, err := repo.List(ctx, ProductFilter{Name: "수박"})
+	if err != nil {
+		t.Fatalf("List 실패: %v", err)
+	}
+	// "포도" 는 매칭 안 됨, "수박맛"·"수박바"·"딸기수박" 만 매칭.
+	if len(list) != 3 {
+		t.Fatalf("이름 필터 개수: got=%d want=3", len(list))
+	}
+	// 앞쪽 일치 우선: "수박맛", "수박바" 가 먼저, 그 다음 부분 일치 "딸기수박".
+	// 같은 그룹 내에서는 이름 ASC: "수박맛" < "수박바".
+	want := []string{"수박맛", "수박바", "딸기수박"}
+	for i, n := range want {
+		if list[i].Name != n {
+			t.Errorf("정렬 [%d]: got=%q want=%q", i, list[i].Name, n)
+		}
+	}
+}
+
+// TestProduct_ListNoMatch — 필터 결과가 0건.
+func TestProduct_ListNoMatch(t *testing.T) {
+	ctx := context.Background()
+	repo := NewProductRepository(newTestDB(t))
+
+	if err := repo.Create(ctx, newSampleProduct("망고")); err != nil {
+		t.Fatal(err)
+	}
+
+	list, err := repo.List(ctx, ProductFilter{Name: "없는이름"})
+	if err != nil {
+		t.Fatalf("List 실패: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("매칭 없을 때 개수: got=%d want=0", len(list))
 	}
 }
