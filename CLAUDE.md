@@ -330,6 +330,17 @@ git push
 
 > 사용자가 "MD 파일 갱신" 요청 시 이 섹션에 누적된다. 최신 날짜가 위에 오도록 역순 정렬.
 
+### 2026-04-26 (일)
+
+- **완료**: 품목 도메인 단순화 — 매입단가(`purchase_price`) 컬럼 제거, 매출단가 기본값 25000(newForm 핸들러 초기화), 재고금액 열 제거(파생값이라 실시간 계산 불필요).
+- **완료**: 품목 화면 UX 개선 3종 — HTMX 422 swap 허용 + `.field-error` 빨간 텍스트로 검증 메시지(중복 품목명 등) 모달 안 가시화 / 등록·수정·삭제 후 상단 카운트 자동 갱신(HX-Trigger JSON 이벤트로 새 카운트 동봉) / 분류·이름 필터(단일 엔드포인트 + `HX-Request` 헤더 분기, CRUD 응답에도 필터 유지).
+- **완료**: 매입(`purchases`) 데이터 계층 — `002_add_purchases.sql`(products FK + 날짜·품목 인덱스), Purchase 모델(`ProductName` JOIN 표시 필드), Repository CRUD + 필터(날짜 범위·품목), Service 트랜잭션 (Create +재고 / Update ±재고 / Delete −재고), repository 9개 + service 9개 테스트.
+- **완료**: ProductRepository.AdjustStock 추가 — 매입/매출 트랜잭션에서 재고 가감 공용 메서드.
+- **결정**: 거래처(`supplier_name`) 필드는 매입에서 **영구 제외** — 기획서 v2 의 거래처 관리 제외 결정과 정합성 맞춤.
+- **결정**: 쓰기 메서드 트랜잭션 패턴 확립 — Repository 쓰기는 `*sql.Tx` 인자, 읽기는 `r.db`. Service 가 `BeginTx → repo 호출 → Commit` 으로 묶음. 매입 등록·수정·삭제 모두 재고 UPDATE 와 같은 트랜잭션에서 처리되어 부분 실패가 없다.
+- **결정**: SQLite DATE/DATETIME 컬럼은 **`time.Time` 으로 직접 스캔할 것**. modernc.org/sqlite 가 자동으로 RFC3339 로 정규화해서 돌려주므로, `string` 으로 받아 `'YYYY-MM-DD'` 로 직접 파싱하면 `extra text "T00:00:00Z"` 로 실패. 향후 `sales` 테이블 등에서도 동일 패턴 유지.
+- **커밋**: `baf2213 feat: 품목 관리 개선 + 매입 트랜잭션 지원 인프라`, `8515f7f feat: 매입 데이터 계층 + 재고 정정 트랜잭션`.
+
 ### 2026-04-24 (금)
 
 - **완료**: CLAUDE.md 상단에 "세션 시작 시 필독 파일" 섹션 신설 — `CLAUDE.md` → `PROJECT_PLAN_v2.md` 순서 필독, 두 문서 충돌 시 `CLAUDE.md` 우선, 갱신 위치 규칙 명시.
