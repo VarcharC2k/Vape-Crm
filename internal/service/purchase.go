@@ -148,13 +148,10 @@ func validatePurchase(p *models.Purchase) ValidationErrors {
 		errs["transaction_date"] = "날짜는 필수입니다"
 	}
 	if p.ProductID <= 0 {
-		errs["product_id"] = "품목을 선택하세요"
+		errs["product_id"] = "품목을 입력하세요"
 	}
 	if p.Quantity <= 0 {
 		errs["quantity"] = "수량은 1 이상이어야 합니다"
-	}
-	if p.Amount < 0 {
-		errs["amount"] = "매입금액은 0 이상이어야 합니다"
 	}
 
 	pm := strings.TrimSpace(p.PaymentMethod)

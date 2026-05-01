@@ -45,7 +45,6 @@ func newSamplePurchase(productID int64) *models.Purchase {
 		TransactionDate: time.Date(2026, 4, 15, 0, 0, 0, 0, time.UTC),
 		ProductID:       productID,
 		Quantity:        10,
-		Amount:          50000,
 		PaymentMethod:   "현금",
 		Memo:            "정기 매입",
 	}
@@ -78,11 +77,14 @@ func TestPurchase_CreateAndGet(t *testing.T) {
 	if got.ProductName != "망고" {
 		t.Errorf("ProductName(JOIN): got=%q want=%q", got.ProductName, "망고")
 	}
-	if got.Quantity != 10 || got.Amount != 50000 {
+	if got.Quantity != 10 {
 		t.Errorf("값 미일치: got=%+v", got)
 	}
 	if got.PaymentMethod != "현금" || got.Memo != "정기 매입" {
 		t.Errorf("문자열 필드 미일치: got=%+v", got)
+	}
+	if got.ProductCategory != models.CategoryLiquid {
+		t.Errorf("ProductCategory(JOIN): got=%d want=%d", got.ProductCategory, models.CategoryLiquid)
 	}
 	if !got.TransactionDate.Equal(p.TransactionDate) {
 		t.Errorf("Date: got=%v want=%v", got.TransactionDate, p.TransactionDate)
@@ -208,7 +210,6 @@ func TestPurchase_Update(t *testing.T) {
 	})
 
 	p.Quantity = 99
-	p.Amount = 99000
 	p.Memo = "수정된 비고"
 	runInTx(t, db, func(tx *sql.Tx) {
 		if err := repo.Update(ctx, tx, p); err != nil {
@@ -217,7 +218,7 @@ func TestPurchase_Update(t *testing.T) {
 	})
 
 	got, _ := repo.GetByID(ctx, p.ID)
-	if got.Quantity != 99 || got.Amount != 99000 || got.Memo != "수정된 비고" {
+	if got.Quantity != 99 || got.Memo != "수정된 비고" {
 		t.Errorf("Update 미반영: %+v", got)
 	}
 }

@@ -37,14 +37,13 @@ type PurchaseFilter struct {
 // 호출 측 service 가 같은 트랜잭션에서 products.stock_qty 도 가산한다.
 func (r *PurchaseRepository) Create(ctx context.Context, tx *sql.Tx, p *models.Purchase) error {
 	const q = `
-		INSERT INTO purchases (transaction_date, product_id, quantity, amount, payment_method, memo)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO purchases (transaction_date, product_id, quantity, payment_method, memo)
+		VALUES (?, ?, ?, ?, ?)
 	`
 	res, err := tx.ExecContext(ctx, q,
 		p.TransactionDate.Format("2006-01-02"),
 		p.ProductID,
 		p.Quantity,
-		p.Amount,
 		p.PaymentMethod,
 		p.Memo,
 	)
@@ -59,7 +58,7 @@ func (r *PurchaseRepository) Create(ctx context.Context, tx *sql.Tx, p *models.P
 	return nil
 }
 
-// GetByID — 단일 매입 조회 (품목명 JOIN 포함).
+// GetByID — 단일 매입 조회 (품목명·분류 JOIN 포함).
 // 없으면 sql.ErrNoRows.
 func (r *PurchaseRepository) GetByID(ctx context.Context, id int64) (*models.Purchase, error) {
 	return r.getByID(ctx, r.db, id)
@@ -72,15 +71,14 @@ func (r *PurchaseRepository) GetByIDTx(ctx context.Context, tx *sql.Tx, id int64
 }
 
 // rowQuerier — *sql.DB 와 *sql.Tx 가 공통으로 만족하는 메서드 집합.
-// getByID 의 공통 구현을 두 컨텍스트에서 재사용하기 위함.
 type rowQuerier interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 func (r *PurchaseRepository) getByID(ctx context.Context, q rowQuerier, id int64) (*models.Purchase, error) {
 	const sqlStr = `
-		SELECT p.id, p.transaction_date, p.product_id, prod.name,
-		       p.quantity, p.amount, p.payment_method, p.memo, p.created_at
+		SELECT p.id, p.transaction_date, p.product_id, prod.name, prod.category,
+		       p.quantity, p.payment_method, p.memo, p.created_at
 		FROM purchases p
 		JOIN products prod ON prod.id = p.product_id
 		WHERE p.id = ?
@@ -111,8 +109,8 @@ func (r *PurchaseRepository) List(ctx context.Context, filter PurchaseFilter) ([
 	}
 
 	sqlStr := `
-		SELECT p.id, p.transaction_date, p.product_id, prod.name,
-		       p.quantity, p.amount, p.payment_method, p.memo, p.created_at
+		SELECT p.id, p.transaction_date, p.product_id, prod.name, prod.category,
+		       p.quantity, p.payment_method, p.memo, p.created_at
 		FROM purchases p
 		JOIN products prod ON prod.id = p.product_id
 	`
@@ -146,14 +144,13 @@ func (r *PurchaseRepository) List(ctx context.Context, filter PurchaseFilter) ([
 func (r *PurchaseRepository) Update(ctx context.Context, tx *sql.Tx, p *models.Purchase) error {
 	const q = `
 		UPDATE purchases
-		SET transaction_date = ?, product_id = ?, quantity = ?, amount = ?, payment_method = ?, memo = ?
+		SET transaction_date = ?, product_id = ?, quantity = ?, payment_method = ?, memo = ?
 		WHERE id = ?
 	`
 	res, err := tx.ExecContext(ctx, q,
 		p.TransactionDate.Format("2006-01-02"),
 		p.ProductID,
 		p.Quantity,
-		p.Amount,
 		p.PaymentMethod,
 		p.Memo,
 		p.ID,
@@ -190,28 +187,27 @@ func (r *PurchaseRepository) Delete(ctx context.Context, tx *sql.Tx, id int64) e
 
 // scanPurchase — row/rows 한 행을 Purchase 구조체로 채운다.
 //
-// 날짜 컬럼은 time.Time 으로 직접 스캔한다.
-// modernc.org/sqlite 가 DATE/DATETIME 컬럼을 RFC3339 로 정규화해서 돌려주기 때문에
-// time.Time 스캔이 가장 안전하다. (string 으로 받으면 'YYYY-MM-DDT00:00:00Z' 같은
-// 추가된 시간 부분이 따라와서 직접 파싱할 때 layout 이 맞지 않는다.)
-//
+// 날짜 컬럼은 time.Time 으로 직접 스캔 (modernc.org/sqlite 가 자동 정규화하므로).
 // memo 는 NULL 허용 컬럼이라 sql.NullString 으로 받는다.
+// category 는 정수로 받아 models.Category 로 캐스팅.
 func scanPurchase(s rowScanner) (*models.Purchase, error) {
 	var p models.Purchase
+	var categoryInt int
 	var memo sql.NullString
 	if err := s.Scan(
 		&p.ID,
 		&p.TransactionDate,
 		&p.ProductID,
 		&p.ProductName,
+		&categoryInt,
 		&p.Quantity,
-		&p.Amount,
 		&p.PaymentMethod,
 		&memo,
 		&p.CreatedAt,
 	); err != nil {
 		return nil, err
 	}
+	p.ProductCategory = models.Category(categoryInt)
 	if memo.Valid {
 		p.Memo = memo.String
 	}

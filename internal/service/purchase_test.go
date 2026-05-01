@@ -52,7 +52,6 @@ func samplePurchaseFor(productID int64, qty int) *models.Purchase {
 		TransactionDate: time.Date(2026, 4, 15, 0, 0, 0, 0, time.UTC),
 		ProductID:       productID,
 		Quantity:        qty,
-		Amount:          int64(qty * 3000),
 		PaymentMethod:   "현금",
 	}
 }
@@ -103,7 +102,6 @@ func TestPurchaseService_Update_NoQuantityChange(t *testing.T) {
 	_ = svc.Create(ctx, p)
 
 	p.Memo = "수정"
-	p.Amount = 99999
 	if err := svc.Update(ctx, p); err != nil {
 		t.Fatalf("Update 실패: %v", err)
 	}
@@ -207,7 +205,6 @@ func TestPurchaseService_Validation(t *testing.T) {
 		{"품목 ID 0", func(p *models.Purchase) { p.ProductID = 0 }, "product_id"},
 		{"수량 0", func(p *models.Purchase) { p.Quantity = 0 }, "quantity"},
 		{"수량 음수", func(p *models.Purchase) { p.Quantity = -1 }, "quantity"},
-		{"매입금액 음수", func(p *models.Purchase) { p.Amount = -1 }, "amount"},
 		{"결제수단 빈값", func(p *models.Purchase) { p.PaymentMethod = "" }, "payment_method"},
 		{"결제수단 11자", func(p *models.Purchase) { p.PaymentMethod = "12345678901" }, "payment_method"},
 		{"비고 501자", func(p *models.Purchase) {
