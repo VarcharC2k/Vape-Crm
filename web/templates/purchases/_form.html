@@ -1,0 +1,117 @@
+{{define "purchases_form"}}
+{{/*
+  매입 등록·수정 공용 폼.
+  - ID 로 hx-post / hx-put 분기.
+  - 분류 select 변경 시 HTMX 가 /products/options 를 호출해 품목 select 의
+    옵션을 그 분류로 갱신한다 (innerHTML swap).
+  - 검증 실패(422)는 서버가 HX-Retarget: #modal-body 헤더로 다시 모달에 폼을 그린다.
+*/}}
+{{- $p := .Purchase -}}
+{{- $errs := .Errors -}}
+{{- $isEdit := gt $p.ID 0 -}}
+{{- $selectedCat := .SelectedCategory -}}
+
+<h3 style="margin-top: 0;">
+  {{if $isEdit}}매입 수정{{else}}신규 매입 등록{{end}}
+</h3>
+
+<form
+  {{if $isEdit}}hx-put="/purchases/{{$p.ID}}"{{else}}hx-post="/purchases/"{{end}}
+  hx-target="#purchases-tbody"
+  hx-swap="outerHTML">
+
+  <label>
+    날짜
+    <input type="date" name="transaction_date" required
+           value="{{$p.TransactionDate.Format "2006-01-02"}}"
+           {{if $errs.transaction_date}}aria-invalid="true"{{end}}>
+    {{with $errs.transaction_date}}<small class="field-error">{{.}}</small>{{end}}
+  </label>
+
+  <div class="grid">
+    <label>
+      분류
+      <select name="category"
+              hx-get="/products/options"
+              hx-target="#product-options"
+              hx-swap="innerHTML"
+              hx-trigger="change"
+              onchange="document.querySelector('input[name=product_name]').value = ''">
+        {{range categories}}
+          <option value="{{categoryInt .}}" {{if eq (categoryInt .) (categoryInt $selectedCat)}}selected{{end}}>{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+
+    <label>
+      품목
+      <input type="text"
+             name="product_name"
+             list="product-options"
+             required
+             value="{{$p.ProductName}}"
+             placeholder="품목명 입력 (자동완성)"
+             autocomplete="off"
+             {{if or $errs.product_name $errs.product_id}}aria-invalid="true"{{end}}>
+      <datalist id="product-options">
+        {{range .Products}}
+          <option value="{{.Name}}">
+        {{end}}
+      </datalist>
+      {{with $errs.product_name}}<small class="field-error">{{.}}</small>{{end}}
+      {{with $errs.product_id}}<small class="field-error">{{.}}</small>{{end}}
+    </label>
+  </div>
+
+  <label>
+    수량
+    <input type="number" name="quantity" required min="1" step="1"
+           value="{{if gt $p.Quantity 0}}{{$p.Quantity}}{{end}}"
+           {{if $errs.quantity}}aria-invalid="true"{{end}}>
+    {{with $errs.quantity}}<small class="field-error">{{.}}</small>{{end}}
+  </label>
+
+  <fieldset>
+    <legend>결제수단</legend>
+    <label style="display: inline-block; margin-right: 1rem;">
+      <input type="radio" name="payment_method" value="현금"
+             {{if eq $p.PaymentMethod "현금"}}checked{{end}}>
+      현금
+    </label>
+    <label style="display: inline-block;">
+      <input type="radio" name="payment_method" value="카드"
+             {{if eq $p.PaymentMethod "카드"}}checked{{end}}>
+      카드
+    </label>
+    {{with $errs.payment_method}}<small class="field-error">{{.}}</small>{{end}}
+  </fieldset>
+
+  <label>
+    비고
+    <input type="text" name="memo" maxlength="500"
+           value="{{$p.Memo}}"
+           {{if $errs.memo}}aria-invalid="true"{{end}}
+           placeholder="(선택)">
+    {{with $errs.memo}}<small class="field-error">{{.}}</small>{{end}}
+  </label>
+
+  <footer style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+    <button type="button"
+            class="secondary"
+            onclick="document.getElementById('modal').close()">
+      취소
+    </button>
+    <button type="submit">
+      {{if $isEdit}}수정{{else}}등록{{end}}
+    </button>
+  </footer>
+</form>
+{{end}}
+
+{{define "purchases_no_products"}}
+<h3 style="margin-top: 0;">등록된 품목이 없습니다</h3>
+<p>매입을 등록하려면 먼저 <a href="/products/">품목 관리</a> 에서 품목을 등록해주세요.</p>
+<footer style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+  <button class="secondary" onclick="document.getElementById('modal').close()">닫기</button>
+</footer>
+{{end}}

@@ -65,6 +65,19 @@ func (r *ProductRepository) GetByID(ctx context.Context, id int64) (*models.Prod
 	return scanProduct(row)
 }
 
+// GetByName — 정확히 같은 이름의 품목을 조회. 없으면 sql.ErrNoRows.
+// products.name 에 UNIQUE 제약이 있어 중복 걱정은 없다.
+// 매입 폼에서 사용자가 datalist 자동완성으로 고른 품목명 -> ID 변환에 사용된다.
+func (r *ProductRepository) GetByName(ctx context.Context, name string) (*models.Product, error) {
+	const q = `
+		SELECT id, category, name, sale_price, stock_qty, created_at
+		FROM products
+		WHERE name = ?
+	`
+	row := r.db.QueryRowContext(ctx, q, name)
+	return scanProduct(row)
+}
+
 // List — 필터 조건에 맞는 품목 목록을 반환한다.
 //
 // 정렬 규칙(CLAUDE.md 의 부분일치 검색 표준):

@@ -58,6 +58,19 @@ func (s *ProductService) Get(ctx context.Context, id int64) (*models.Product, er
 	return p, nil
 }
 
+// GetByName — 이름으로 품목 조회. 없으면 ErrProductNotFound.
+// 매입 폼에서 사용자가 입력한 품목명을 ID 로 변환할 때 쓴다.
+func (s *ProductService) GetByName(ctx context.Context, name string) (*models.Product, error) {
+	p, err := s.repo.GetByName(ctx, name)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrProductNotFound
+		}
+		return nil, err
+	}
+	return p, nil
+}
+
 // Create — 검증 통과 시 등록. 이름 중복은 DB 단 UNIQUE 제약에서 걸리고,
 // 여기서 한글 메시지로 감싸서 폼에 표시 가능하게 만든다.
 func (s *ProductService) Create(ctx context.Context, p *models.Product) error {

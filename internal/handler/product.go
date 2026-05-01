@@ -30,12 +30,43 @@ func NewProductHandler(svc *service.ProductService, tmpl *template.Template) *Pr
 func (h *ProductHandler) Register(r chi.Router) {
 	r.Route("/products", func(r chi.Router) {
 		r.Get("/", h.list)              // 목록 (HX-Request 헤더 유무로 풀페이지/tbody 분기)
+		r.Get("/options", h.options)    // 분류별 품목 <option> HTML (매입 폼의 동적 셀렉트용)
 		r.Get("/new", h.newForm)        // 등록 모달 body
 		r.Post("/", h.create)           // 등록 실행 -> 갱신된 tbody (필터 반영)
 		r.Get("/{id}/edit", h.editForm) // 수정 모달 body
 		r.Put("/{id}", h.update)        // 수정 실행 -> 갱신된 tbody
 		r.Delete("/{id}", h.delete)     // 삭제 -> 갱신된 tbody
 	})
+}
+
+// options — 주어진 분류의 품목들을 <option> HTML 로 반환.
+// 매입 폼의 분류 select 가 변경될 때 HTMX 가 호출해 품목 select 를 갱신한다.
+//
+// 응답은 <option> 들만이라 매입 폼의 select 안에 innerHTML 로 swap 된다.
+func (h *ProductHandler) options(w http.ResponseWriter, r *http.Request) {
+	catStr := r.URL.Query().Get("category")
+	if catStr == "" {
+		// 분류 미지정: 빈 응답
+		h.render(w, "products_options", []*models.Product{})
+		return
+	}
+	catInt, err := strconv.Atoi(catStr)
+	if err != nil {
+		http.Error(w, "잘못된 분류", http.StatusBadRequest)
+		return
+	}
+	cat := models.Category(catInt)
+	if !cat.IsValid() {
+		http.Error(w, "잘못된 분류", http.StatusBadRequest)
+		return
+	}
+
+	products, err := h.svc.List(r.Context(), repository.ProductFilter{Category: &cat})
+	if err != nil {
+		h.serverError(w, err)
+		return
+	}
+	h.render(w, "products_options", products)
 }
 
 // list — GET /products/

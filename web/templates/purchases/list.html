@@ -1,0 +1,63 @@
+{{define "page"}}
+<header style="display: flex; justify-content: space-between; align-items: center;">
+  <hgroup>
+    <h1>매입 관리</h1>
+    <p id="purchase-count">등록된 매입 {{len .Purchases}}건</p>
+  </hgroup>
+  <button
+    hx-get="/purchases/new"
+    hx-target="#modal-body"
+    hx-swap="innerHTML">
+    신규 등록
+  </button>
+</header>
+
+<table>
+  <thead>
+    <tr>
+      <th>날짜</th>
+      <th>분류</th>
+      <th>품목</th>
+      <th class="num">수량</th>
+      <th>결제수단</th>
+      <th>비고</th>
+      <th style="width: 8rem;">관리</th>
+    </tr>
+  </thead>
+  {{template "purchases_tbody" .}}
+</table>
+
+{{/* 모달: 등록·수정 폼이 hx-get 으로 들어오는 자리 */}}
+<dialog id="modal">
+  <article style="min-width: min(36rem, 95vw);">
+    <header>
+      <button
+        aria-label="Close"
+        rel="prev"
+        onclick="document.getElementById('modal').close()"></button>
+      <strong id="modal-title">매입</strong>
+    </header>
+    <div id="modal-body"><!-- HTMX 가 폼을 여기에 주입 --></div>
+  </article>
+</dialog>
+
+<script>
+  // 모달 body 에 새 HTML 이 들어오면 자동으로 dialog 열기
+  document.body.addEventListener('htmx:afterSwap', function (evt) {
+    if (evt.detail.target && evt.detail.target.id === 'modal-body') {
+      document.getElementById('modal').showModal();
+    }
+  });
+
+  // 저장 성공 시 서버가 HX-Trigger: purchase-saved 를 보내면 모달 닫기
+  document.body.addEventListener('purchase-saved', function () {
+    document.getElementById('modal').close();
+  });
+
+  // 등록/수정/삭제 후 서버가 보낸 새 카운트로 상단 텍스트 갱신
+  document.body.addEventListener('purchase-count-changed', function (evt) {
+    const el = document.getElementById('purchase-count');
+    if (el) el.textContent = '등록된 매입 ' + evt.detail.value + '건';
+  });
+</script>
+{{end}}

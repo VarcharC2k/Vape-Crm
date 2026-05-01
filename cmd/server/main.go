@@ -27,8 +27,8 @@ func main() {
 	}
 	log.Println("DB 마이그레이션 완료")
 
-	// 2. 템플릿 로드 (embed 된 web/templates 에서)
-	tmpl, err := handler.LoadTemplates()
+	// 2. 템플릿 로드 (embed 된 web/templates 에서, 페이지별 분리 세트)
+	tmpls, err := handler.LoadTemplates()
 	if err != nil {
 		log.Fatalf("템플릿 로드 실패: %v", err)
 	}
@@ -36,7 +36,11 @@ func main() {
 	// 3. 의존성 주입 (repo -> service -> handler)
 	productRepo := repository.NewProductRepository(conn)
 	productSvc := service.NewProductService(productRepo)
-	productHandler := handler.NewProductHandler(productSvc, tmpl)
+	productHandler := handler.NewProductHandler(productSvc, tmpls.Products)
+
+	purchaseRepo := repository.NewPurchaseRepository(conn)
+	purchaseSvc := service.NewPurchaseService(conn, purchaseRepo, productRepo)
+	purchaseHandler := handler.NewPurchaseHandler(purchaseSvc, productSvc, tmpls.Purchases)
 
 	// 4. 라우터
 	r := chi.NewRouter()
@@ -49,6 +53,7 @@ func main() {
 	})
 
 	productHandler.Register(r)
+	purchaseHandler.Register(r)
 
 	// 5. 기동
 	addr := ":8080"

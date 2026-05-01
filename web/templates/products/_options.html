@@ -1,0 +1,14 @@
+{{define "products_options"}}
+{{- /*
+  매입 폼의 datalist 안에 들어가는 <option> 들.
+  분류 select 가 변경되면 HTMX 가 이걸 받아서 #product-options datalist 의
+  innerHTML 로 swap 한다.
+
+  datalist 의 <option> 은:
+    - value 속성만 사용 (사용자에게 보이는 자동완성 후보)
+    - 닫는 태그 없음, inner text 없음
+*/ -}}
+{{range .}}
+<option value="{{.Name}}">
+{{end}}
+{{end}}
