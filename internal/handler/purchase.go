@@ -50,10 +50,8 @@ func (h *PurchaseHandler) Register(r chi.Router) {
 }
 
 // list — GET /purchases/
-//   - 일반 브라우저 접근(HX-Request 헤더 없음): layout + 풀 페이지 렌더
-//   - HTMX 요청(필터 변경 등): tbody 파셜만 반환
-//
-// 필터 기능은 다음 라운드에서 추가. 현재는 항상 전체 목록.
+//   - 일반 브라우저 접근(HX-Request 헤더 없음): layout + 풀 페이지 렌더 (필터 비어있는 상태)
+//   - HTMX 요청(필터 변경 등): tbody 파셜만 반환 (q_month 파라미터의 월 필터 적용)
 func (h *PurchaseHandler) list(w http.ResponseWriter, r *http.Request) {
 	if isHTMX(r) {
 		h.renderTbody(w, r)
@@ -70,9 +68,9 @@ func (h *PurchaseHandler) list(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// renderTbody — tbody 파셜만 반환 + 카운트 갱신 트리거.
+// renderTbody — 필터 적용한 tbody 파셜 + 카운트 갱신.
 func (h *PurchaseHandler) renderTbody(w http.ResponseWriter, r *http.Request) {
-	purchases, err := h.svc.List(r.Context(), repository.PurchaseFilter{})
+	purchases, err := h.svc.List(r.Context(), parsePurchaseFilter(r))
 	if err != nil {
 		h.serverError(w, err)
 		return
@@ -270,7 +268,8 @@ func (h *PurchaseHandler) tryRenderFormError(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *PurchaseHandler) renderTbodyAndTrigger(w http.ResponseWriter, r *http.Request) {
-	purchases, err := h.svc.List(r.Context(), repository.PurchaseFilter{})
+	// CRUD 응답에도 현재 필터 유지 — 폼/삭제 버튼이 hx-include 로 q_month 를 함께 보냄.
+	purchases, err := h.svc.List(r.Context(), parsePurchaseFilter(r))
 	if err != nil {
 		h.serverError(w, err)
 		return
@@ -296,6 +295,38 @@ func (h *PurchaseHandler) render(w http.ResponseWriter, name string, data any) {
 func (h *PurchaseHandler) serverError(w http.ResponseWriter, err error) {
 	log.Printf("서버 에러: %v", err)
 	http.Error(w, "서버 오류", http.StatusInternalServerError)
+}
+
+// parsePurchaseFilter — 요청에서 매입 검색 필터를 추출.
+//
+// 현재는 q_month 만 지원 — '<input type="month">' 가 보내는 'YYYY-MM' 문자열.
+// 빈 값이면 무필터 (전체 조회).
+//
+// 'YYYY-MM' 을 그 달의 첫째 날 ~ 마지막 날 범위로 변환해 PurchaseFilter 의
+// DateFrom/DateTo 에 채운다. (repository.List 가 이미 날짜 범위 필터를 지원함)
+//
+// r.FormValue 는 GET 의 query string 과 POST/DELETE 의 form/query 양쪽을 모두 읽으므로,
+// CRUD 요청에서 hx-include 로 함께 들어와도 동일하게 동작한다.
+func parsePurchaseFilter(r *http.Request) repository.PurchaseFilter {
+	var filter repository.PurchaseFilter
+
+	monthStr := strings.TrimSpace(r.FormValue("q_month"))
+	if monthStr == "" {
+		return filter
+	}
+
+	t, err := time.Parse("2006-01", monthStr)
+	if err != nil {
+		return filter // 형식 오류면 무시 (조용히 전체 조회)
+	}
+
+	year, month := t.Year(), t.Month()
+	from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+	// 다음달 1일에서 하루 빼면 이번달 마지막 날
+	to := time.Date(year, month+1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
+	filter.DateFrom = &from
+	filter.DateTo = &to
+	return filter
 }
 
 // parsePurchaseForm — 폼 필드를 파싱해 Purchase 구조체로.

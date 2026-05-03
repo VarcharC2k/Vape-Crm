@@ -50,6 +50,7 @@ func currency(v int64) string {
 type PageTemplates struct {
 	Products  *template.Template
 	Purchases *template.Template
+	Stocks    *template.Template
 }
 
 // LoadTemplates — 페이지별 템플릿 세트를 한 번에 로드.
@@ -80,8 +81,20 @@ func LoadTemplates() (*PageTemplates, error) {
 		return nil, fmt.Errorf("purchases 템플릿 파싱 실패: %w", err)
 	}
 
+	stocks, err := template.New("").
+		Funcs(tmplFuncs).
+		ParseFS(web.Templates,
+			"templates/layout.html",
+			"templates/stocks/list.html",
+			"templates/stocks/_tbody.html",
+		)
+	if err != nil {
+		return nil, fmt.Errorf("stocks 템플릿 파싱 실패: %w", err)
+	}
+
 	return &PageTemplates{
 		Products:  products,
 		Purchases: purchases,
+		Stocks:    stocks,
 	}, nil
 }

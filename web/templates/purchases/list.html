@@ -2,7 +2,7 @@
 <header style="display: flex; justify-content: space-between; align-items: center;">
   <hgroup>
     <h1>매입 관리</h1>
-    <p id="purchase-count">등록된 매입 {{len .Purchases}}건</p>
+    <p id="purchase-count">표시 매입 {{len .Purchases}}건</p>
   </hgroup>
   <button
     hx-get="/purchases/new"
@@ -11,6 +11,22 @@
     신규 등록
   </button>
 </header>
+
+{{/*
+  매입 검색 필터 — 년/월 단위.
+  <input type="month"> 는 'YYYY-MM' 형식 값을 보냄. 비우면 전체.
+  값 변경 시 HTMX 로 tbody 만 갱신.
+*/}}
+<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+  <label for="filter-month" style="margin: 0;">조회 월:</label>
+  <input id="filter-month" name="q_month" type="month"
+         hx-get="/purchases/"
+         hx-target="#purchases-tbody"
+         hx-swap="outerHTML"
+         hx-trigger="change"
+         style="margin: 0; max-width: 12rem;">
+  <small style="color: var(--pico-muted-color);">비우면 전체</small>
+</div>
 
 <table>
   <thead>
@@ -57,7 +73,7 @@
   // 등록/수정/삭제 후 서버가 보낸 새 카운트로 상단 텍스트 갱신
   document.body.addEventListener('purchase-count-changed', function (evt) {
     const el = document.getElementById('purchase-count');
-    if (el) el.textContent = '등록된 매입 ' + evt.detail.value + '건';
+    if (el) el.textContent = '표시 매입 ' + evt.detail.value + '건';
   });
 </script>
 {{end}}

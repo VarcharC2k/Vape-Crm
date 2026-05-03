@@ -42,6 +42,8 @@ func main() {
 	purchaseSvc := service.NewPurchaseService(conn, purchaseRepo, productRepo)
 	purchaseHandler := handler.NewPurchaseHandler(purchaseSvc, productSvc, tmpls.Purchases)
 
+	stockHandler := handler.NewStockHandler(productSvc, tmpls.Stocks)
+
 	// 4. 라우터
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -54,6 +56,7 @@ func main() {
 
 	productHandler.Register(r)
 	purchaseHandler.Register(r)
+	stockHandler.Register(r)
 
 	// 5. 기동
 	addr := ":8080"

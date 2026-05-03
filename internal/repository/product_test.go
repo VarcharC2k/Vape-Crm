@@ -274,6 +274,37 @@ func TestProduct_ListByName(t *testing.T) {
 	}
 }
 
+// TestProduct_ListByMinStock — 재고 보유 필터.
+func TestProduct_ListByMinStock(t *testing.T) {
+	ctx := context.Background()
+	repo := NewProductRepository(newTestDB(t))
+
+	// 재고 0 / 1 / 5 세 건
+	for _, p := range []*models.Product{
+		{Category: models.CategoryLiquid, Name: "재고없음", SalePrice: 1000, StockQty: 0},
+		{Category: models.CategoryLiquid, Name: "재고1", SalePrice: 1000, StockQty: 1},
+		{Category: models.CategoryLiquid, Name: "재고5", SalePrice: 1000, StockQty: 5},
+	} {
+		if err := repo.Create(ctx, p); err != nil {
+			t.Fatalf("Create(%s) 실패: %v", p.Name, err)
+		}
+	}
+
+	min := 1
+	list, err := repo.List(ctx, ProductFilter{MinStockQty: &min})
+	if err != nil {
+		t.Fatalf("List 실패: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("재고 보유 필터: got=%d want=2 (재고1, 재고5)", len(list))
+	}
+	for _, p := range list {
+		if p.StockQty < 1 {
+			t.Errorf("필터 결과에 재고 0 섞임: %+v", p)
+		}
+	}
+}
+
 // TestProduct_ListNoMatch — 필터 결과가 0건.
 func TestProduct_ListNoMatch(t *testing.T) {
 	ctx := context.Background()

@@ -24,13 +24,14 @@ func NewProductRepository(db *sql.DB) *ProductRepository {
 // ProductFilter — List 조회 시 적용할 필터.
 // 빈 값(nil 또는 "") 인 항목은 필터링하지 않는다.
 type ProductFilter struct {
-	Category *models.Category // nil 이면 전체 분류
-	Name     string           // 빈 문자열이면 전체 이름 (앞뒤 공백은 트림됨)
+	Category    *models.Category // nil 이면 전체 분류
+	Name        string           // 빈 문자열이면 전체 이름 (앞뒤 공백은 트림됨)
+	MinStockQty *int             // nil 이면 재고 무관, 값이 있으면 stock_qty >= MinStockQty (재고 현황 화면에서 사용)
 }
 
 // IsEmpty — 어떤 필터도 걸려있지 않은지.
 func (f ProductFilter) IsEmpty() bool {
-	return f.Category == nil && strings.TrimSpace(f.Name) == ""
+	return f.Category == nil && strings.TrimSpace(f.Name) == "" && f.MinStockQty == nil
 }
 
 // Create — 신규 품목을 등록하고 생성된 ID 를 p.ID 에 채워 넣는다.
@@ -100,6 +101,11 @@ func (r *ProductRepository) List(ctx context.Context, filter ProductFilter) ([]*
 	if name != "" {
 		wheres = append(wheres, "name LIKE '%' || ? || '%'")
 		args = append(args, name)
+	}
+
+	if filter.MinStockQty != nil {
+		wheres = append(wheres, "stock_qty >= ?")
+		args = append(args, *filter.MinStockQty)
 	}
 
 	q := `SELECT id, category, name, sale_price, stock_qty, created_at FROM products`

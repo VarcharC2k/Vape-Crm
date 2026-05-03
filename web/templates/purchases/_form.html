@@ -18,7 +18,8 @@
 <form
   {{if $isEdit}}hx-put="/purchases/{{$p.ID}}"{{else}}hx-post="/purchases/"{{end}}
   hx-target="#purchases-tbody"
-  hx-swap="outerHTML">
+  hx-swap="outerHTML"
+  hx-include="#filter-month">
 
   <label>
     날짜

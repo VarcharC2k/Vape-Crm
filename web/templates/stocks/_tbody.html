@@ -1,0 +1,18 @@
+{{define "stocks_tbody"}}
+<tbody id="stocks-tbody">
+  {{range .Products}}
+    <tr>
+      <td>{{.Category}}</td>
+      <td>{{.Name}}</td>
+      <td class="num">{{.StockQty}}</td>
+      <td class="num">{{currency .SalePrice}}</td>
+    </tr>
+  {{else}}
+    <tr>
+      <td colspan="4" style="text-align: center; padding: 2rem;">
+        <em>재고 보유 품목이 없습니다. 매입 등록 후 다시 확인해주세요.</em>
+      </td>
+    </tr>
+  {{end}}
+</tbody>
+{{end}}

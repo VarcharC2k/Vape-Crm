@@ -1,0 +1,62 @@
+{{define "page"}}
+<header style="display: flex; justify-content: space-between; align-items: center;">
+  <hgroup>
+    <h1>재고 현황</h1>
+    <p id="stock-count">재고 보유 {{len .Products}}개</p>
+  </hgroup>
+</header>
+
+{{/*
+  필터 UI — 품목 화면과 동일 패턴.
+  q_category 와 q_name 은 서버의 parseFilter 가 그대로 읽어준다.
+  서버는 항상 MinStockQty=1 을 추가로 적용 (StockHandler.parseFilter 참조).
+*/}}
+<form id="filter-form" onsubmit="return false" style="margin-bottom: 1rem;">
+  <fieldset class="grid">
+    <label>
+      분류
+      <select id="filter-category" name="q_category"
+              hx-get="/stocks/"
+              hx-target="#stocks-tbody"
+              hx-swap="outerHTML"
+              hx-include="#filter-name"
+              hx-trigger="change">
+        <option value="-1">전체</option>
+        {{range categories}}
+          <option value="{{categoryInt .}}">{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <label>
+      품목명
+      <input id="filter-name" name="q_name" type="search"
+             placeholder="품목명 일부 입력..."
+             hx-get="/stocks/"
+             hx-target="#stocks-tbody"
+             hx-swap="outerHTML"
+             hx-include="#filter-category"
+             hx-trigger="keyup changed delay:200ms, search">
+    </label>
+  </fieldset>
+</form>
+
+<table>
+  <thead>
+    <tr>
+      <th>분류</th>
+      <th>품목명</th>
+      <th class="num">재고수량</th>
+      <th class="num">매출단가</th>
+    </tr>
+  </thead>
+  {{template "stocks_tbody" .}}
+</table>
+
+<script>
+  // 필터 변경 후 서버가 보낸 새 카운트로 상단 텍스트 갱신
+  document.body.addEventListener('stock-count-changed', function (evt) {
+    const el = document.getElementById('stock-count');
+    if (el) el.textContent = '재고 보유 ' + evt.detail.value + '개';
+  });
+</script>
+{{end}}
